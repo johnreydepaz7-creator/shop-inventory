@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Shop Inventory</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#f1f5f9;--mut:#94a3b8;--ac:#22c55e;--bad:#ef4444}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:16px system-ui,sans-serif;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;border-radius:10px;padding:10px 14px;background:var(--line);cursor:pointer;touch-action:manipulation}
+button.pri{background:var(--ac);color:#06250f;font-weight:600}
+button.bad{background:#7f1d1d}
+button:disabled{opacity:.4}
+input,textarea{font:inherit;color:inherit;background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
+#side{position:fixed;left:0;top:0;bottom:0;width:60px;background:var(--card);border-right:1px solid var(--line);z-index:20;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);transition:width .2s;overflow:hidden}
+.exp #side{width:230px}
+#veil{position:fixed;inset:0;background:#0009;z-index:15;display:none}
+.exp #veil{display:block}
+#side button{background:none;border-radius:0;display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;text-align:left;white-space:nowrap;position:relative}
+#side button i{font-style:normal;font-size:22px;width:24px;text-align:center}
+#side button.on{background:#0b1220;box-shadow:inset 3px 0 var(--ac)}
+#side span{opacity:0;transition:opacity .15s}
+.exp #side span{opacity:1}
+.dot{position:absolute;left:34px;top:12px;width:10px;height:10px;border-radius:50%;background:var(--bad);display:none}
+.dot.on{display:block}
+#tog{border-bottom:1px solid var(--line)!important}
+main{padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(30px + env(safe-area-inset-bottom,0px)) 74px;max-width:640px;margin:0 auto;height:100%;overflow-y:auto}
+h1{font-size:22px;margin:4px 0 14px}
+h2{font-size:16px;margin:18px 0 8px;color:var(--mut);font-weight:600}
+.pg{display:none}.pg.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.big{font-size:30px;font-weight:700}
+.mut{color:var(--mut);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid button{padding:16px 8px;background:var(--card);border:1px solid var(--line);font-weight:600}
+.grid button small{display:block;color:var(--mut);font-weight:400;margin-top:4px}
+pre{margin:8px 0;font:inherit;font-size:17px;white-space:pre-wrap;background:#0b1220;border-radius:10px;padding:12px}
+.tot{font-size:22px;font-weight:700;color:var(--ac)}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.void{opacity:.5;text-decoration:line-through}
+#toast{position:fixed;left:74px;right:14px;bottom:calc(18px + env(safe-area-inset-bottom,0px));background:#e2e8f0;color:#0f172a;padding:12px 14px;border-radius:12px;z-index:30;display:none;font-weight:600}
+</style></head>
+<body>
+<div id="app">
+<div id="veil"></div>
+<aside id="side" aria-label="Menu">
+  <button id="tog" aria-label="Collapse or expand menu"><i>☰</i><span>Menu</span></button>
+  <button data-go="inv"><i>📦</i><span>Inventory</span></button>
+  <button data-go="ord"><i>🧾</i><span>Order</span></button>
+  <button data-go="his"><i>🕘</i><span>History</span></button>
+  <button data-go="rep"><i>📊</i><span>5:00 PM Report</span><b class="dot" id="dot"></b></button>
+</aside>
+<main>
+  <h1 id="ttl"></h1>
+
+  <section class="pg" id="p-inv">
+    <div id="invList"></div>
+    <p class="mut">Hd (Hotdog) uses the Hc stock.</p>
+  </section>
+
+  <section class="pg" id="p-ord"><div id="ordBox"></div></section>
+
+  <section class="pg" id="p-his"><div id="hisBox"></div></section>
+
+  <section class="pg" id="p-rep">
+    <h2>Now (live)</h2>
+    <div class="card"><pre id="live"></pre><button id="copyLive">Copy</button></div>
+    <h2>Saved 5:00 PM reports</h2>
+    <div id="repList"></div>
+    <h2>5:00 PM alert</h2>
+    <div class="card"><div class="mut" id="notifState"></div><div class="row" style="margin-top:10px"><button id="notifBtn">Turn on alert</button><button id="exactBtn" style="display:none">Allow exact time</button></div></div>
+    <h2>Backup</h2>
+    <div class="card"><div class="mut">Copy a backup now and then, so you can restore it if the app is ever uninstalled.</div>
+      <div class="row" style="margin-top:10px"><button id="bkCopy">Copy backup</button><button id="bkShow">Restore…</button></div>
+      <div id="bkBox" style="display:none;margin-top:10px"><textarea id="bkText" rows="5" placeholder="Paste backup here"></textarea><button class="pri" id="bkGo" style="margin-top:8px">Restore from pasted backup</button></div>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+</div>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const STK=["Hc","Pp","Bf","Bcn","Bgr"],PRODS=["Hc","Hd","Pp","Bf","Bcn","Bgr"];
+const PRICE={Hc:110,Hd:120,Pp:120,Bf:130,Bcn:130,Bgr:130},SKEY={Hc:"Hc",Hd:"Hc",Pp:"Pp",Bf:"Bf",Bcn:"Bcn",Bgr:"Bgr"};
+const NAME={Hc:"Hc",Hd:"Hd",Pp:"Pp",Bf:"Bf",Bcn:"Bcn",Bgr:"Bgr"};
+const TITLE={inv:"Inventory",ord:"New order",his:"Order history",rep:"5:00 PM report"};
+const pad=n=>String(n).padStart(2,"0");
+const peso=n=>"₱"+Number(n).toLocaleString("en-US",{maximumFractionDigits:2});
+const dstr=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const at5=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),17,0,0).getTime();
+const dayStart=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
+const tfmt=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+const dfmt=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})};
+
+/* ---------- data ---------- */
+const KEY="shopinv.v1";
+const fresh=()=>({stock:{Hc:0,Pp:0,Bf:0,Bcn:0,Bgr:0},orders:[],log:[],reports:{},first:dstr(new Date()),firstT:Date.now(),nid:1,unseen:false});
+let db=null;
+try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){db=null}
+if(!db||!db.stock||!Array.isArray(db.orders)||!Array.isArray(db.log))db=fresh();
+db.reports=db.reports||{};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){toast("Could not save your data!")}};
+const adj=(k,d,why)=>{db.stock[k]+=d;db.log.push({t:Date.now(),k,d,why})};
+
+/* ---------- report ---------- */
+const repText=(stock,sales)=>"Stocks\n"+STK.map(k=>k+"-"+stock[k]).join("\n")+"\nSales-"+sales;
+const sold=(o,T)=>o.t<=T&&(!o.void||o.voidT>T);
+function stockAt(T){const s={...db.stock};for(const e of db.log)if(e.t>T)s[e.k]-=e.d;return s}
+function salesAt(date,T){const a=dayStart(date);let n=0;for(const o of db.orders)if(o.t>=a&&sold(o,T))for(const i of o.items)n+=i.q;return n}
+function ensureReports(){
+  const now=Date.now();let made=0;
+  for(let i=7;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);const ds=dstr(d);
+    if(ds<db.first||db.reports[ds]||now<at5(d)||(ds===db.first&&db.firstT>at5(d)))continue;
+    const T=at5(d);
+    db.reports[ds]={date:ds,gen:now,text:repText(stockAt(T),salesAt(d,T))};made++;
+  }
+  if(made){db.unseen=true;save();render();toast("5:00 PM report is ready")}
+}
+
+/* ---------- ui helpers ---------- */
+let tt=0;
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(tt);tt=setTimeout(()=>t.style.display="none",3200)}
+async function copy(text){
+  try{await navigator.clipboard.writeText(text);toast("Copied");return}catch(e){}
+  const a=document.createElement("textarea");a.value=text;document.body.appendChild(a);a.select();
+  try{document.execCommand("copy");toast("Copied")}catch(e){toast("Copy not available")}a.remove();
+}
+async function share(text){
+  if(navigator.share){try{await navigator.share({text});return}catch(e){if(e&&e.name==="AbortError")return}}
+  copy(text);
+}
+const num=v=>{const n=Number(String(v).trim());return String(v).trim()!==""&&Number.isInteger(n)?n:NaN};
+
+/* ---------- sidebar ---------- */
+const app=$("#app");let page="inv";
+const setExp=v=>app.classList.toggle("exp",v);
+$("#tog").onclick=()=>setExp(!app.classList.contains("exp"));
+$("#veil").onclick=()=>setExp(false);
+$$("#side [data-go]").forEach(b=>b.onclick=()=>{go(b.dataset.go);setExp(false)});
+function go(p){
+  page=p;
+  $$(".pg").forEach(e=>e.classList.toggle("on",e.id==="p-"+p));
+  $$("#side [data-go]").forEach(b=>b.classList.toggle("on",b.dataset.go===p));
+  $("#ttl").textContent=TITLE[p];
+  if(p==="rep"&&db.unseen){db.unseen=false;save()}
+  render();$("main").scrollTop=0;
+}
+
+/* ---------- inventory ---------- */
+function renderInv(){
+  $("#invList").innerHTML=STK.map(k=>`<div class="card"><div class="row"><div><div class="mut">${k}</div><div class="big">${db.stock[k]}</div></div></div>
+  <div class="row" style="margin-top:10px"><input inputmode="numeric" pattern="[0-9]*" placeholder="Amount" id="in-${k}" aria-label="Amount for ${k}"><button class="pri" data-add="${k}">Add</button><button data-set="${k}">Set</button></div></div>`).join("");
+}
+$("#invList").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const a=b.dataset.add,s=b.dataset.set,k=a||s;if(!k)return;
+  const n=num($("#in-"+k).value);
+  if(a){if(!(n>0))return toast("Enter a number above 0");adj(k,n,"add");toast(`${k}: added ${n}`)}
+  else{if(!(n>=0))return toast("Enter 0 or more");adj(k,n-db.stock[k],"set");toast(`${k} set to ${n}`)}
+  save();render();
+});
+
+/* ---------- order ---------- */
+let cart=[],pick=null,qty=1,paid="",lastO=null;
+const r2=n=>Math.round(n*100)/100,cartTotal=()=>cart.reduce((a,i)=>a+i.q*i.price,0);
+function payInfo(total){
+  const t=String(paid).trim();
+  if(t==="")return{ok:false,html:"Enter the money received"};
+  const m=Number(t);
+  if(!Number.isFinite(m)||m<0)return{ok:false,html:"Enter a valid amount"};
+  if(m<total)return{ok:false,html:"Short by "+peso(r2(total-m))};
+  return{ok:true,html:"Change: "+peso(r2(m-total))};
+}
+const used=k=>cart.filter(i=>SKEY[i.p]===k).reduce((a,i)=>a+i.q,0);
+const left=p=>db.stock[SKEY[p]]-used(SKEY[p]);
+function renderOrd(){
+  const total=cartTotal(),pi=payInfo(total);
+  let h="";
+  if(lastO&&!cart.length&&!pick)h+=`<div class="card"><div class="mut">Last order #${lastO.id} saved</div><div class="row" style="margin-top:6px"><div><div class="mut">Total</div><b>${peso(lastO.total)}</b></div><div><div class="mut">Paid</div><b>${peso(lastO.paid)}</b></div><div><div class="mut">Change</div><div class="tot">${peso(lastO.change)}</div></div></div></div>`;
+  if(!pick){
+    h+=`<h2>1. Choose product</h2><div class="grid">${PRODS.map(p=>`<button data-pick="${p}" ${left(p)<=0?"disabled":""}>${NAME[p]}<small>${peso(PRICE[p])} · ${left(p)>0?left(p)+" left":"out of stock"}</small></button>`).join("")}</div>`;
+  }else{
+    h+=`<h2>2. Quantity for ${NAME[pick]}</h2><div class="card"><div class="mut">${peso(PRICE[pick])} each · ${left(pick)} available${pick==="Hd"?" (uses Hc stock)":""}</div>
+    <div class="row" style="margin:12px 0"><button data-q="-1" aria-label="Less">−</button><input id="qty" inputmode="numeric" value="${qty}" aria-label="Quantity" style="text-align:center"><button data-q="1" aria-label="More">+</button></div>
+    <div class="tot" id="lineTot">Total: ${peso(qty*PRICE[pick])}</div>
+    <div class="row" style="margin-top:12px"><button data-back>Back</button><button class="pri" data-add>Add to order</button></div></div>`;
+  }
+  if(cart.length){
+    h+=`<h2>Order</h2><div class="card">${cart.map((i,x)=>`<div class="item"><span>${i.q} × ${NAME[i.p]} <span class="mut">${peso(i.price)}</span></span><span>${peso(i.q*i.price)} <button data-rm="${x}" aria-label="Remove">✕</button></span></div>`).join("")}
+    <div class="item"><b>Total</b><span class="tot">${peso(total)}</span></div>
+    <div style="margin-top:12px"><div class="mut">Customer's money</div>
+    <input id="paid" inputmode="decimal" placeholder="Amount received" value="${paid}" aria-label="Customer's money" style="margin-top:6px">
+    <div class="row" style="margin-top:8px"><button data-pay="exact" style="padding:10px 4px">Exact</button>${[100,200,500,1000].map(n=>`<button data-pay="${n}" style="padding:10px 4px">${n}</button>`).join("")}</div>
+    <div id="chg" class="tot" style="margin-top:10px;${pi.ok?"":"color:var(--bad)"}">${pi.html}</div></div>
+    <div class="row" style="margin-top:10px"><button data-clear>Clear</button><button class="pri" data-save ${pi.ok?"":"disabled"}>Save order</button></div></div>`;
+  }
+  $("#ordBox").innerHTML=h;
+}
+$("#ordBox").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const d=b.dataset;
+  if(d.pick){pick=d.pick;qty=1;return renderOrd()}
+  if(d.q){qty=Math.max(1,Math.min(left(pick),qty+Number(d.q)));return renderOrd()}
+  if("back" in d){pick=null;return renderOrd()}
+  if("add" in d){
+    const n=num($("#qty").value);
+    if(!(n>=1))return toast("Quantity must be 1 or more");
+    if(n>left(pick))return toast(`Only ${left(pick)} left`);
+    cart.push({p:pick,q:n,price:PRICE[pick]});pick=null;return renderOrd();
+  }
+  if(d.rm){cart.splice(Number(d.rm),1);return renderOrd()}
+  if(d.pay){paid=d.pay==="exact"?String(cartTotal()):d.pay;return renderOrd()}
+  if("clear" in d){cart=[];paid="";return renderOrd()}
+  if("save" in d)return saveOrder();
+});
+$("#ordBox").addEventListener("input",e=>{
+  if(e.target.id==="paid"){
+    paid=e.target.value;const pi=payInfo(cartTotal()),c=$("#chg"),sv=$("#ordBox [data-save]");
+    c.textContent=pi.html;c.style.color=pi.ok?"":"var(--bad)";if(sv)sv.disabled=!pi.ok;return;
+  }
+  if(e.target.id!=="qty")return;
+  const n=num(e.target.value);qty=n>=1?n:1;
+  $("#lineTot").textContent="Total: "+peso((n>=1?n:0)*PRICE[pick]);
+});
+function saveOrder(){
+  for(const k of STK)if(used(k)>db.stock[k])return toast(`Not enough ${k} stock`);
+  const id=db.nid++,items=cart.map(i=>({p:i.p,q:i.q,price:i.price}));
+  const total=items.reduce((a,i)=>a+i.q*i.price,0),pi=payInfo(total);
+  if(!pi.ok){db.nid--;return toast(pi.html)}
+  const m=Number(paid),change=r2(m-total);
+  for(const i of items)adj(SKEY[i.p],-i.q,"order "+id);
+  db.orders.push({id,t:Date.now(),items,total,paid:m,change,void:false});
+  save();lastO={id,total,paid:m,change};cart=[];pick=null;paid="";
+  toast(`Order #${id} saved · Change ${peso(change)}`);render();
+}
+
+/* ---------- history ---------- */
+function renderHis(){
+  if(!db.orders.length){$("#hisBox").innerHTML='<div class="card mut">No orders yet.</div>';return}
+  const days={};
+  for(const o of [...db.orders].reverse()){(days[dstr(new Date(o.t))]??=[]).push(o)}
+  $("#hisBox").innerHTML=Object.keys(days).sort().reverse().map(ds=>{
+    const list=days[ds],ok=list.filter(o=>!o.void),units=ok.reduce((a,o)=>a+o.items.reduce((b,i)=>b+i.q,0),0);
+    return `<h2>${dfmt(ds)} · ${units} sold · ${peso(ok.reduce((a,o)=>a+o.total,0))}</h2><div class="card">${list.map(o=>`<div class="item ${o.void?"void":""}"><span><b>#${o.id}</b> ${tfmt(o.t)}<br><span class="mut">${o.items.map(i=>i.q+" × "+NAME[i.p]).join(", ")}${o.paid!=null?"<br>Paid "+peso(o.paid)+" · Change "+peso(o.change):""}</span></span><span style="text-align:right"><b>${peso(o.total)}</b>${o.void?"<br><span class='mut'>voided</span>":`<br><button data-void="${o.id}">Void</button>`}</span></div>`).join("")}</div>`}).join("");
+}
+$("#hisBox").addEventListener("click",e=>{
+  const vb=e.target.closest("button");const id=vb?Number(vb.dataset.void):0;if(!id)return;
+  const o=db.orders.find(x=>x.id===id);if(!o||o.void)return;
+  if(!confirm(`Void order #${id}? The stock will be returned.`))return;
+  o.void=true;o.voidT=Date.now();for(const i of o.items)adj(SKEY[i.p],i.q,"void "+id);
+  save();toast(`Order #${id} voided`);render();
+});
+
+/* ---------- report page ---------- */
+function liveText(){return repText(db.stock,salesAt(new Date(),Date.now()))}
+function renderRep(){
+  $("#live").textContent=liveText();
+  const ds=Object.keys(db.reports).sort().reverse();
+  $("#repList").innerHTML=ds.length?ds.map(d=>`<div class="card"><div class="mut">${dfmt(d)} · 5:00 PM</div><pre>${db.reports[d].text}</pre><div class="row"><button data-copy="${d}">Copy</button><button class="pri" data-share="${d}">Share</button></div></div>`).join(""):'<div class="card mut">The first report appears at 5:00 PM.</div>';
+  $("#dot").classList.toggle("on",!!db.unseen);
+}
+$("#copyLive").onclick=()=>copy(liveText());
+$("#repList").addEventListener("click",e=>{
+  const rb=e.target.closest("button");if(!rb)return;
+  const c=rb.dataset.copy,s=rb.dataset.share;
+  if(c)copy(db.reports[c].text);if(s)share(db.reports[s].text);
+});
+$("#bkCopy").onclick=()=>copy(JSON.stringify(db));
+$("#bkShow").onclick=()=>{const b=$("#bkBox");b.style.display=b.style.display==="none"?"block":"none"};
+$("#bkGo").onclick=()=>{
+  let d;try{d=JSON.parse($("#bkText").value)}catch(e){return toast("That is not a valid backup")}
+  const ok=d&&d.stock&&STK.every(k=>Number.isFinite(d.stock[k]))&&Array.isArray(d.orders)&&Array.isArray(d.log);
+  if(!ok)return toast("That is not a valid backup");
+  if(!confirm("Replace all current data with this backup?"))return;
+  db=d;db.reports=db.reports||{};save();toast("Backup restored");render();
+};
+
+/* ---------- 5:00 PM notification (Android app only) ---------- */
+const cap=window.Capacitor;
+const LN=cap&&cap.isNativePlatform&&cap.isNativePlatform()?cap.registerPlugin("LocalNotifications"):null;
+async function setupNotif(ask){
+  const st=$("#notifState");
+  if(!LN){st.textContent="Alerts work in the installed Android app. Reports are still saved when you open this page after 5:00 PM.";$("#notifBtn").style.display="none";return}
+  try{
+    let p=await LN.checkPermissions();
+    if(p.display!=="granted"&&ask)p=await LN.requestPermissions();
+    if(p.display!=="granted"){st.textContent="Alert is off. Tap the button and allow notifications.";$("#notifBtn").style.display="";return}
+    await LN.cancel({notifications:[{id:1}]});
+    await LN.schedule({notifications:[{id:1,title:"5:00 PM report",body:"Tap to see today's stocks and sales.",schedule:{on:{hour:17,minute:0},allowWhileIdle:true}}]});
+    st.textContent="Alert is on: every day at 5:00 PM.";$("#notifBtn").style.display="none";
+    try{const ex=await LN.checkExactNotificationSetting();$("#exactBtn").style.display=ex.exact_alarm==="granted"?"none":""}catch(e){}
+  }catch(e){st.textContent="Could not set the alert: "+(e&&e.message||e)}
+}
+$("#notifBtn").onclick=()=>setupNotif(true);
+$("#exactBtn").onclick=async()=>{try{await LN.changeExactNotificationSetting()}catch(e){}setTimeout(()=>setupNotif(false),1500)};
+if(LN)LN.addListener("localNotificationActionPerformed",()=>{ensureReports();go("rep")});
+
+/* ---------- start ---------- */
+function render(){renderInv();renderOrd();renderHis();renderRep()}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)ensureReports()});
+setInterval(ensureReports,15000);
+ensureReports();
+go("inv");
+setupNotif(true);
+if(!db.seenMenu){db.seenMenu=true;save();setExp(true)}
+})();
+</script>
+</body></html>
